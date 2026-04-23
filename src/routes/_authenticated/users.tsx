@@ -1,7 +1,8 @@
 import { createFileRoute, useNavigate } from "@tanstack/react-router";
 import { useEffect, useState } from "react";
 import { useAuth } from "@/contexts/AuthContext";
-import { apiFetch, ApiError } from "@/lib/api";
+import { apiFetch, apiFetchPaginated, ApiError, type PaginationMeta } from "@/lib/api";
+// apiFetch used below in UserFormDialog
 import type { User, Role } from "@/lib/types";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
@@ -18,7 +19,7 @@ import {
 import {
   Table, TableBody, TableCell, TableHead, TableHeader, TableRow,
 } from "@/components/ui/table";
-import { Loader2, Plus, Pencil } from "lucide-react";
+import { Loader2, Plus, Pencil, Search } from "lucide-react";
 import { toast } from "sonner";
 
 export const Route = createFileRoute("/_authenticated/users")({
@@ -32,6 +33,11 @@ function UsersPage() {
   const [loading, setLoading] = useState(true);
   const [open, setOpen] = useState(false);
   const [editing, setEditing] = useState<User | null>(null);
+  const [search, setSearch] = useState("");
+  const [searchInput, setSearchInput] = useState("");
+  const [page, setPage] = useState(1);
+  const limit = 10;
+  const [meta, setMeta] = useState<PaginationMeta>({ page: 1, limit, total: 0, totalPages: 1 });
 
   useEffect(() => {
     if (!hasRole(["ADMIN"])) {
@@ -43,8 +49,11 @@ function UsersPage() {
   const load = async () => {
     setLoading(true);
     try {
-      const data = await apiFetch<User[]>("/users");
-      setUsers(data);
+      const params = new URLSearchParams({ page: String(page), limit: String(limit) });
+      if (search) params.set("search", search);
+      const res = await apiFetchPaginated<User>(`/users?${params}`);
+      setUsers(res.data);
+      setMeta(res.meta);
     } catch (err) {
       if (err instanceof ApiError) toast.error(err.message);
     } finally {
@@ -52,7 +61,13 @@ function UsersPage() {
     }
   };
 
-  useEffect(() => { load(); }, []);
+  useEffect(() => { load(); }, [page, search]);
+
+  // debounce search input
+  useEffect(() => {
+    const t = setTimeout(() => { setPage(1); setSearch(searchInput.trim()); }, 350);
+    return () => clearTimeout(t);
+  }, [searchInput]);
 
   return (
     <div className="space-y-6">
@@ -67,6 +82,17 @@ function UsersPage() {
       </div>
 
       <Card>
+        <div className="flex items-center gap-2 border-b p-4">
+          <div className="relative flex-1 max-w-sm">
+            <Search className="absolute left-2.5 top-2.5 h-4 w-4 text-muted-foreground" />
+            <Input
+              placeholder="Search by email..."
+              value={searchInput}
+              onChange={(e) => setSearchInput(e.target.value)}
+              className="pl-8"
+            />
+          </div>
+        </div>
         {loading ? (
           <div className="flex justify-center py-12"><Loader2 className="h-6 w-6 animate-spin text-muted-foreground" /></div>
         ) : (
@@ -106,6 +132,15 @@ function UsersPage() {
             </TableBody>
           </Table>
         )}
+        <div className="flex items-center justify-between border-t p-4 text-sm">
+          <div className="text-muted-foreground">
+            Page {meta.page} of {meta.totalPages} • {meta.total} total
+          </div>
+          <div className="flex gap-2">
+            <Button size="sm" variant="outline" disabled={page <= 1 || loading} onClick={() => setPage((p) => Math.max(1, p - 1))}>Prev</Button>
+            <Button size="sm" variant="outline" disabled={page >= meta.totalPages || loading} onClick={() => setPage((p) => p + 1)}>Next</Button>
+          </div>
+        </div>
       </Card>
 
       <UserFormDialog

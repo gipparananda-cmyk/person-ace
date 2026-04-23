@@ -76,3 +76,51 @@ export async function apiFetch<T = unknown>(
 
   return (body?.data as T);
 }
+
+export interface PaginationMeta {
+  page: number;
+  limit: number;
+  total: number;
+  totalPages: number;
+}
+
+export interface Paginated<T> {
+  data: T[];
+  meta: PaginationMeta;
+}
+
+export async function apiFetchPaginated<T = unknown>(
+  path: string,
+  init: RequestInit = {},
+): Promise<Paginated<T>> {
+  const auth = getAuth();
+  const headers = new Headers(init.headers);
+  headers.set("Content-Type", "application/json");
+  if (auth?.token) headers.set("Authorization", `Bearer ${auth.token}`);
+
+  let res: Response;
+  try {
+    res = await fetch(`${getApiBase()}${path}`, { ...init, headers });
+  } catch {
+    throw new ApiError("Cannot reach API. Check API base URL and CORS.", 0);
+  }
+
+  let body: (ApiResponse<T[]> & { meta?: PaginationMeta }) | null = null;
+  try { body = await res.json(); } catch { /* ignore */ }
+
+  if (res.status === 401) {
+    clearAuth();
+    if (typeof window !== "undefined" && !window.location.pathname.startsWith("/login")) {
+      window.location.href = "/login";
+    }
+    throw new ApiError(body?.message || "Unauthorized", 401);
+  }
+
+  if (!res.ok || (body && body.success === false)) {
+    throw new ApiError(body?.message || `Request failed (${res.status})`, res.status);
+  }
+
+  const list = (body?.data as T[]) ?? [];
+  const meta = body?.meta ?? { page: 1, limit: list.length, total: list.length, totalPages: 1 };
+  return { data: list, meta };
+}

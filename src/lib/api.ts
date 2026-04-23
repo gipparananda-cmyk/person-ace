@@ -2,10 +2,11 @@ import type { ApiResponse } from "./types";
 
 const STORAGE_KEY = "ems_auth";
 const API_BASE_KEY = "ems_api_base";
+const DEFAULT_API_BASE = import.meta.env.VITE_API_BASE_URL || "http://localhost:3000/api";
 
 export function getApiBase(): string {
-  if (typeof window === "undefined") return "http://localhost:3000/api";
-  return localStorage.getItem(API_BASE_KEY) || "http://localhost:3000/api";
+  if (typeof window === "undefined") return DEFAULT_API_BASE;
+  return localStorage.getItem(API_BASE_KEY) || DEFAULT_API_BASE;
 }
 
 export function setApiBase(url: string) {

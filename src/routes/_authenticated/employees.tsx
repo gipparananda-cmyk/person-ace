@@ -192,13 +192,12 @@ function EmployeesPage() {
 }
 
 function EmployeeFormDialog({
-  open, onOpenChange, editing, departments, positions, users, onSaved,
+  open, onOpenChange, editing, departments, users, onSaved,
 }: {
   open: boolean;
   onOpenChange: (v: boolean) => void;
   editing: Employee | null;
   departments: Department[];
-  positions: Position[];
   users: User[];
   onSaved: () => void;
 }) {
@@ -210,6 +209,9 @@ function EmployeeFormDialog({
   const [joinDate, setJoinDate] = useState("");
   const [status, setStatus] = useState<EmployeeStatus>("ACTIVE");
   const [submitting, setSubmitting] = useState(false);
+  const [positions, setPositions] = useState<Position[]>([]);
+  const [positionsLoading, setPositionsLoading] = useState(false);
+  const initialDeptRef = useState<string | null>(null)[0];
 
   useEffect(() => {
     if (open) {
@@ -220,8 +222,35 @@ function EmployeeFormDialog({
       setPositionId(editing?.position?.id ?? "");
       setJoinDate(editing?.joinDate ? editing.joinDate.slice(0, 10) : "");
       setStatus(editing?.status ?? "ACTIVE");
+      setPositions([]);
     }
   }, [open, editing]);
+
+  // When department changes, fetch positions for that department
+  useEffect(() => {
+    if (!open || !departmentId) {
+      setPositions([]);
+      return;
+    }
+    let cancelled = false;
+    setPositionsLoading(true);
+    apiFetch<Position[]>(`/positions?departmentId=${departmentId}`)
+      .then((list) => {
+        if (cancelled) return;
+        setPositions(list);
+        // reset position if it doesn't belong to this department
+        const initialPositionId = editing?.position?.id;
+        const initialDepartmentId = editing?.department?.id;
+        const keepInitial = departmentId === initialDepartmentId && initialPositionId && list.some((p) => p.id === initialPositionId);
+        if (!keepInitial) setPositionId("");
+      })
+      .catch((err) => {
+        if (err instanceof ApiError) toast.error(err.message);
+      })
+      .finally(() => { if (!cancelled) setPositionsLoading(false); });
+    return () => { cancelled = true; };
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [departmentId, open]);
 
   const submit = async (e: React.FormEvent) => {
     e.preventDefault();
@@ -306,8 +335,10 @@ function EmployeeFormDialog({
             </div>
             <div className="space-y-2">
               <Label>Position</Label>
-              <Select value={positionId} onValueChange={setPositionId}>
-                <SelectTrigger><SelectValue placeholder="Select" /></SelectTrigger>
+              <Select value={positionId} onValueChange={setPositionId} disabled={!departmentId || positionsLoading}>
+                <SelectTrigger>
+                  <SelectValue placeholder={!departmentId ? "Select department first" : positionsLoading ? "Loading..." : "Select"} />
+                </SelectTrigger>
                 <SelectContent>
                   {positions.map((p) => (
                     <SelectItem key={p.id} value={p.id}>{p.name}</SelectItem>

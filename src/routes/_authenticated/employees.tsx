@@ -1,7 +1,7 @@
 import { createFileRoute, useNavigate } from "@tanstack/react-router";
 import { useEffect, useState } from "react";
 import { useAuth } from "@/contexts/AuthContext";
-import { apiFetch, ApiError } from "@/lib/api";
+import { apiFetch, apiFetchPaginated, ApiError, type PaginationMeta } from "@/lib/api";
 import type { Employee, EmployeeStatus, Department, Position, User } from "@/lib/types";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
@@ -17,7 +17,7 @@ import {
 import {
   Table, TableBody, TableCell, TableHead, TableHeader, TableRow,
 } from "@/components/ui/table";
-import { Loader2, Plus, Pencil, Trash2 } from "lucide-react";
+import { Loader2, Plus, Pencil, Trash2, Search } from "lucide-react";
 import { toast } from "sonner";
 import { ConfirmDialog } from "@/components/ConfirmDialog";
 
@@ -30,12 +30,16 @@ function EmployeesPage() {
   const navigate = useNavigate();
   const [employees, setEmployees] = useState<Employee[]>([]);
   const [departments, setDepartments] = useState<Department[]>([]);
-  const [positions, setPositions] = useState<Position[]>([]);
   const [users, setUsers] = useState<User[]>([]);
   const [loading, setLoading] = useState(true);
   const [open, setOpen] = useState(false);
   const [editing, setEditing] = useState<Employee | null>(null);
   const [deleting, setDeleting] = useState<Employee | null>(null);
+  const [search, setSearch] = useState("");
+  const [searchInput, setSearchInput] = useState("");
+  const [page, setPage] = useState(1);
+  const limit = 10;
+  const [meta, setMeta] = useState<PaginationMeta>({ page: 1, limit, total: 0, totalPages: 1 });
 
   useEffect(() => {
     if (!hasRole(["ADMIN", "HR"])) {
@@ -47,20 +51,15 @@ function EmployeesPage() {
   const load = async () => {
     setLoading(true);
     try {
-      const [emps, deps, pos] = await Promise.all([
-        apiFetch<Employee[]>("/employees"),
+      const params = new URLSearchParams({ page: String(page), limit: String(limit) });
+      if (search) params.set("search", search);
+      const [emps, deps] = await Promise.all([
+        apiFetchPaginated<Employee>(`/employees?${params}`),
         apiFetch<Department[]>("/departments"),
-        apiFetch<Position[]>("/positions"),
       ]);
-      setEmployees(emps);
+      setEmployees(emps.data);
+      setMeta(emps.meta);
       setDepartments(deps);
-      setPositions(pos);
-      if (hasRole(["ADMIN"])) {
-        try {
-          const us = await apiFetch<User[]>("/users");
-          setUsers(us);
-        } catch { /* HR cannot list users */ }
-      }
     } catch (err) {
       if (err instanceof ApiError) toast.error(err.message);
     } finally {
@@ -68,7 +67,19 @@ function EmployeesPage() {
     }
   };
 
-  useEffect(() => { load(); }, []);
+  useEffect(() => { load(); }, [page, search]);
+
+  useEffect(() => {
+    const t = setTimeout(() => { setPage(1); setSearch(searchInput.trim()); }, 350);
+    return () => clearTimeout(t);
+  }, [searchInput]);
+
+  // Load users list once (admin only) for the create form
+  useEffect(() => {
+    if (hasRole(["ADMIN"])) {
+      apiFetch<User[]>("/users").then(setUsers).catch(() => { /* ignore */ });
+    }
+  }, [hasRole]);
 
   const handleDelete = async () => {
     if (!deleting) return;
@@ -95,6 +106,17 @@ function EmployeesPage() {
       </div>
 
       <Card>
+        <div className="flex items-center gap-2 border-b p-4">
+          <div className="relative flex-1 max-w-sm">
+            <Search className="absolute left-2.5 top-2.5 h-4 w-4 text-muted-foreground" />
+            <Input
+              placeholder="Search by name or employee ID..."
+              value={searchInput}
+              onChange={(e) => setSearchInput(e.target.value)}
+              className="pl-8"
+            />
+          </div>
+        </div>
         {loading ? (
           <div className="flex justify-center py-12"><Loader2 className="h-6 w-6 animate-spin text-muted-foreground" /></div>
         ) : (
@@ -137,6 +159,15 @@ function EmployeesPage() {
             </TableBody>
           </Table>
         )}
+        <div className="flex items-center justify-between border-t p-4 text-sm">
+          <div className="text-muted-foreground">
+            Page {meta.page} of {meta.totalPages} • {meta.total} total
+          </div>
+          <div className="flex gap-2">
+            <Button size="sm" variant="outline" disabled={page <= 1 || loading} onClick={() => setPage((p) => Math.max(1, p - 1))}>Prev</Button>
+            <Button size="sm" variant="outline" disabled={page >= meta.totalPages || loading} onClick={() => setPage((p) => p + 1)}>Next</Button>
+          </div>
+        </div>
       </Card>
 
       <EmployeeFormDialog
@@ -144,7 +175,6 @@ function EmployeesPage() {
         onOpenChange={setOpen}
         editing={editing}
         departments={departments}
-        positions={positions}
         users={users}
         onSaved={() => { setOpen(false); load(); }}
       />

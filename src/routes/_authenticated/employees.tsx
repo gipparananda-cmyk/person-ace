@@ -211,7 +211,6 @@ function EmployeeFormDialog({
   const [submitting, setSubmitting] = useState(false);
   const [positions, setPositions] = useState<Position[]>([]);
   const [positionsLoading, setPositionsLoading] = useState(false);
-  const initialDeptRef = useState<string | null>(null)[0];
 
   useEffect(() => {
     if (open) {

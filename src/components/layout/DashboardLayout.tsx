@@ -10,6 +10,8 @@ import {
   Building2,
   Menu,
   X,
+  CalendarDays,
+  ClipboardList,
 } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { cn } from "@/lib/utils";
@@ -20,6 +22,8 @@ const NAV: { to: string; label: string; icon: typeof LayoutDashboard; roles: Rol
   { to: "/dashboard", label: "Dashboard", icon: LayoutDashboard, roles: ["ADMIN", "HR", "EMPLOYEE"] },
   { to: "/users", label: "Users", icon: UserCog, roles: ["ADMIN"] },
   { to: "/employees", label: "Employees", icon: Users, roles: ["ADMIN", "HR"] },
+  { to: "/my-leave", label: "My Leave", icon: CalendarDays, roles: ["EMPLOYEE"] },
+  { to: "/leave-management", label: "Leave Management", icon: ClipboardList, roles: ["ADMIN", "HR"] },
   { to: "/profile", label: "Profile", icon: UserCircle, roles: ["ADMIN", "HR", "EMPLOYEE"] },
 ];
 

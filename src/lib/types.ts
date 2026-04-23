@@ -1,5 +1,6 @@
 export type Role = "ADMIN" | "HR" | "EMPLOYEE";
 export type EmployeeStatus = "ACTIVE" | "RESIGNED";
+export type LeaveStatus = "PENDING" | "APPROVED" | "REJECTED" | "CANCELLED";
 
 export interface User {
   id: string;
@@ -32,4 +33,17 @@ export interface ApiResponse<T> {
   success: boolean;
   data?: T;
   message?: string;
+}
+
+export interface LeaveRequest {
+  id: string;
+  employeeId: string;
+  startDate: string;
+  endDate: string;
+  reason: string;
+  status: LeaveStatus;
+  rejectionReason?: string | null;
+  employee?: { id: string; fullName: string; employeeId?: string };
+  createdAt?: string;
+  updatedAt?: string;
 }

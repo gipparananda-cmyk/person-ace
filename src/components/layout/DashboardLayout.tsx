@@ -1,4 +1,4 @@
-import { ReactNode } from "react";
+import { ReactNode, useEffect, useState } from "react";
 import { Link, useLocation, useNavigate } from "@tanstack/react-router";
 import { useAuth } from "@/contexts/AuthContext";
 import {
@@ -8,6 +8,8 @@ import {
   UserCircle,
   LogOut,
   Building2,
+  Menu,
+  X,
 } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { cn } from "@/lib/utils";
@@ -25,6 +27,11 @@ export function DashboardLayout({ children }: { children: ReactNode }) {
   const { user, logout } = useAuth();
   const location = useLocation();
   const navigate = useNavigate();
+  const [open, setOpen] = useState(false);
+
+  useEffect(() => {
+    setOpen(false);
+  }, [location.pathname]);
 
   if (!user) {
     navigate({ to: "/login" });
@@ -35,15 +42,38 @@ export function DashboardLayout({ children }: { children: ReactNode }) {
 
   return (
     <div className="flex min-h-screen bg-muted/30">
-      <aside className="hidden md:flex w-64 flex-col border-r bg-card">
+      {/* Mobile overlay */}
+      <div
+        className={cn(
+          "fixed inset-0 z-30 bg-black/50 transition-opacity md:hidden",
+          open ? "opacity-100" : "pointer-events-none opacity-0",
+        )}
+        onClick={() => setOpen(false)}
+      />
+
+      <aside
+        className={cn(
+          "fixed inset-y-0 left-0 z-40 flex w-64 flex-col border-r bg-card transition-transform duration-300 md:static md:translate-x-0",
+          open ? "translate-x-0" : "-translate-x-full",
+        )}
+      >
         <div className="flex h-16 items-center gap-2 border-b px-6">
           <div className="flex h-9 w-9 items-center justify-center rounded-lg bg-primary text-primary-foreground">
             <Building2 className="h-5 w-5" />
           </div>
-          <div>
+          <div className="flex-1">
             <div className="text-sm font-semibold">EMS</div>
             <div className="text-xs text-muted-foreground">Dashboard</div>
           </div>
+          <Button
+            variant="ghost"
+            size="icon"
+            className="md:hidden"
+            onClick={() => setOpen(false)}
+            aria-label="Close sidebar"
+          >
+            <X className="h-5 w-5" />
+          </Button>
         </div>
         <nav className="flex-1 space-y-1 p-3">
           {items.map((item) => {
@@ -75,20 +105,18 @@ export function DashboardLayout({ children }: { children: ReactNode }) {
 
       <div className="flex flex-1 flex-col">
         <header className="flex h-16 items-center justify-between border-b bg-card px-6">
-          <div className="md:hidden flex gap-1 overflow-x-auto">
-            {items.map((item) => (
-              <Link
-                key={item.to}
-                to={item.to}
-                className="rounded-md px-2 py-1 text-xs font-medium hover:bg-accent"
-              >
-                {item.label}
-              </Link>
-            ))}
-          </div>
+          <Button
+            variant="ghost"
+            size="icon"
+            className="md:hidden"
+            onClick={() => setOpen(true)}
+            aria-label="Open sidebar"
+          >
+            <Menu className="h-5 w-5" />
+          </Button>
           <div className="ml-auto flex items-center gap-3">
             <div className="text-right">
-              <div className="text-sm font-medium">{user.email}</div>
+              <div className="text-sm font-medium truncate max-w-[160px]">{user.email}</div>
               <div className="text-xs text-muted-foreground">{user.role}</div>
             </div>
             <div className="flex h-9 w-9 items-center justify-center rounded-full bg-primary/10 text-primary font-semibold">
@@ -96,7 +124,7 @@ export function DashboardLayout({ children }: { children: ReactNode }) {
             </div>
           </div>
         </header>
-        <main className="flex-1 p-6">{children}</main>
+        <main className="flex-1 p-4 md:p-6">{children}</main>
       </div>
     </div>
   );
